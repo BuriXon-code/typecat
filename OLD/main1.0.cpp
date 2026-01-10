@@ -1,7 +1,7 @@
 /*
  * Author: Kamil BuriXon Burek
  * Name: typecat
- * Version: 1.1
+ * Version: 1.0
  * Year: 2026
  * Description:
  *	 typecat is a terminal-based text display tool that simulates typing
@@ -82,12 +82,11 @@ volatile sig_atomic_t sig_flag = 0;
 static int sig_pipe_fds[2] = {-1, -1};
 
 int get_cols(){
-	struct winsize w{};
+	struct winsize w;
 	if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &w) == -1) return 80;
 	if(w.ws_col == 0) return 80;
 	return (int)w.ws_col;
 }
-
 
 double calc_delay(){
 	int value = 100 - speed;
@@ -217,101 +216,6 @@ string render_escapes_as_text(const string &s){
 	return out;
 }
 
-struct unicode_interval { uint32_t first; uint32_t last; };
-
-static const unicode_interval combining_intervals[] = {
-	{0x0300, 0x036F},
-	{0x1AB0, 0x1AFF},
-	{0x1DC0, 0x1DFF},
-	{0x20D0, 0x20FF},
-	{0xFE20, 0xFE2F}
-};
-
-static const unicode_interval wide_intervals[] = {
-	{0x1100, 0x115F},
-	{0x2329, 0x232A},
-	{0x2E80, 0xA4CF},
-	{0xAC00, 0xD7A3},
-	{0xF900, 0xFAFF},
-	{0xFE10, 0xFE19},
-	{0xFE30, 0xFE6F},
-	{0xFF00, 0xFF60},
-	{0xFFE0, 0xFFE6},
-	{0x20000, 0x2FFFD},
-	{0x30000, 0x3FFFD}
-};
-
-static bool is_in_intervals(const unicode_interval *table, size_t table_len, uint32_t codepoint){
-	for(size_t k = 0; k < table_len; ++k){
-		if(codepoint >= table[k].first && codepoint <= table[k].last) return true;
-	}
-	return false;
-}
-
-static uint32_t utf8_decode_codepoint(const std::string &s, size_t i, int &bytes){
-	size_t n = s.size();
-	if(i >= n){ bytes = 0; return 0; }
-	unsigned char b0 = (unsigned char)s[i];
-
-	if(b0 < 0x80){
-		bytes = 1;
-		return (uint32_t)b0;
-	}
-
-	if((b0 & 0xE0) == 0xC0){
-		if(i+1 < n){
-			unsigned char b1 = (unsigned char)s[i+1];
-			if((b1 & 0xC0) == 0x80){
-				uint32_t cp = ((b0 & 0x1F) << 6) | (b1 & 0x3F);
-				if(cp >= 0x80){ bytes = 2; return cp; }
-			}
-		}
-	}
-	else if((b0 & 0xF0) == 0xE0){
-		if(i+2 < n){
-			unsigned char b1 = (unsigned char)s[i+1];
-			unsigned char b2 = (unsigned char)s[i+2];
-			if((b1 & 0xC0) == 0x80 && (b2 & 0xC0) == 0x80){
-				uint32_t cp = ((b0 & 0x0F) << 12) | ((b1 & 0x3F) << 6) | (b2 & 0x3F);
-				if(cp >= 0x800 && !(cp >= 0xD800 && cp <= 0xDFFF)){ bytes = 3; return cp; }
-			}
-		}
-	}
-	else if((b0 & 0xF8) == 0xF0){
-		if(i+3 < n){
-			unsigned char b1 = (unsigned char)s[i+1];
-			unsigned char b2 = (unsigned char)s[i+2];
-			unsigned char b3 = (unsigned char)s[i+3];
-			if((b1 & 0xC0) == 0x80 && (b2 & 0xC0) == 0x80 && (b3 & 0xC0) == 0x80){
-				uint32_t cp = ((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-				if(cp >= 0x10000 && cp <= 0x10FFFF){ bytes = 4; return cp; }
-			}
-		}
-	}
-
-	bytes = 1;
-	return 0xFFFD;
-}
-
-static int unicode_wcwidth(uint32_t ucs){
-	if(ucs == 0) return 0;
-	if(ucs < 32 || (ucs >= 0x7f && ucs < 0xa0)) return 0;
-	if(is_in_intervals(combining_intervals, sizeof(combining_intervals)/sizeof(combining_intervals[0]), ucs)) return 0;
-	if(is_in_intervals(wide_intervals, sizeof(wide_intervals)/sizeof(wide_intervals[0]), ucs)) return 2;
-	return 1;
-}
-
-static std::string utf8_next_glyph(const std::string &s, size_t i, int &bytes, int &width){
-	int b = 0;
-	uint32_t cp = utf8_decode_codepoint(s, i, b);
-	bytes = b;
-	if(bytes <= 0) bytes = 1;
-	if(i + (size_t)bytes > s.size()) bytes = (int)max((size_t)1, s.size() - i);
-	width = unicode_wcwidth(cp);
-	if(width < 0) width = 1;
-	return s.substr(i, bytes);
-}
-
 char pick_neighbor(char ch){
 	char lower = (char)tolower((unsigned char)ch);
 	string key; key.push_back(lower);
@@ -339,23 +243,23 @@ void print_hide_cursor(){ cout << "\x1B[?25l" << flush; }
 void print_show_cursor(){ cout << "\x1B[?25h" << flush; }
 
 void print_help(const string &prog_base){
-	cout << prog_base << " v1.1 (c) Kamil BuriXon Burek 2026\n\n";
+	cout << prog_base << " v1.0 (c) Kamil BuriXon Burek 2026\n\n";
 	cout << "Usage:\n";
 	cout << "  " << prog_base << " [options] [file]\n\n";
 	cout << "Options:\n";
-	cout << "  -s, --speed <1-100>       Typing speed (default 50). 100 = minimal delay.\n";
-	cout << "  -m, --mistakes <1-100>    Enable random mistakes. Optionally set chance 1-100 (default off|10).\n";
-	cout << "  -c, --color               Interpret ANSI escape sequences (emit colors).\n";
-	cout << "  -e, --print-escapes       Print ANSI escapes textually as \\e[..., not as colors.\n";
-	cout << "                            (conflicts with -c/--color)\n";
-	cout << "  -b, --beep                Emit BEL on non-zero exit code.\n";
-	cout << "  -t, --text <string>       Add a text line to display (can be repeated).\n";
-	cout << "  -a, --show-all            Force showing input even if detected as binary.\n";
-	cout << "  -n, --line-numbers        Prepend dimmed line numbers (N| ) to each line.\n";
-	cout << "  -r, --allow-resize        Allow terminal resize (SIGWINCH) during typing.\n";
-	cout << "  -h, --help                Show this help and exit.\n";
-	cout << "  -v, --version             Show program version and exit.\n";
-	cout << "  --codes                   Show a list of exit codes and signal handling details.\n\n";
+	cout << "  -s, --speed <1-100>		 Typing speed (default 50). 100 = minimal delay.\n";
+	cout << "  -m, --mistakes <1-100	 Enable random mistakes. Optionally set chance 1-100 (default off|10).\n";
+	cout << "  -c, --color				 Interpret ANSI escape sequences (emit colors).\n";
+	cout << "  -e, --print-escapes		 Print ANSI escapes textually as \\e[..., not as colors.\n";
+	cout << "							 (conflicts with -c/--color)\n";
+	cout << "  -b, --beep				 Emit BEL on non-zero exit code.\n";
+	cout << "  -t, --text <string>		 Add a text line to display (can be repeated).\n";
+	cout << "  -a, --show-all			 Force showing input even if detected as binary.\n";
+	cout << "  -n, --line-numbers		 Prepend dimmed line numbers (N| ) to each line.\n";
+	cout << "  -r, --allow-resize		 Allow terminal resize (SIGWINCH) during typing.\n";
+	cout << "  -h, --help				 Show this help and exit.\n";
+	cout << "  -v, --version			 Show program version and exit.\n";
+	cout << "  --codes					 Show a list of exit codes and signal handling details.\n\n";
 	cout << "Input:\n";
 	cout << "  If no file is provided and stdin is a TTY, program reads lines as you\n";
 	cout << "  type them (press Enter to send a line). If stdin is piped, the whole\n";
@@ -364,14 +268,15 @@ void print_help(const string &prog_base){
 }
 
 void print_version(const string &prog_base){
-	cout << prog_base << " v1.1 (c) Kamil BuriXon Burek 2026\n";
+	cout << prog_base << " v1.0 (c) Kamil BuriXon Burek 2026\n";
 }
 
 void type_line(const string &raw_in, int lineno = -1, int total_lines = 0);
 
+// helper: emit BEL if enabled
 inline void maybe_bell(){
 	if(beep_on_error){
-		cerr << '\a' << flush;
+		cout << '\a' << flush;
 	}
 }
 
@@ -385,14 +290,14 @@ void print_error_and_exit(int code, const string &msg){
 	print_escapes = false;
 
 	maybe_bell();
-	print_show_cursor();
-
-	cerr << formatted << '\n' << flush;
+	print_hide_cursor();
+	type_line(formatted, -1, 0);
+	maybe_bell();
 
 	escapes = old_esc;
 	print_escapes = old_print_esc;
 
-	_exit(code);
+	exit(code);
 }
 
 void print_codes_and_exit(){
@@ -446,31 +351,31 @@ void handle_signal_event(int signo){
 			return;
 		}
 		maybe_bell();
-		print_show_cursor();
-		cerr << '\n';
+		print_hide_cursor();
+		cout << '\n';
 		string sig_prefix = string("\x1B[33m") + "signal " + sig_macro + " (" + to_string(exit_code) + "):" + "\x1B[0m";
-		cerr << sig_prefix << " " << (desc ? desc : "") << endl;
+		cout << sig_prefix << " " << (desc ? desc : "") << endl;
 		maybe_bell();
 
 		string err_prefix = string("\x1B[31m") + "error (" + to_string(exit_code) + "):" + "\x1B[0m";
 		string msg = "Resizing during typing is not advised and may corrupt output. "
 					 "Note: some terminal environments can send SIGWINCH when focus changes. Use -r/--allow-resize to ignore resize events.";
-		cerr << err_prefix << " " << msg << endl;
+		cout << err_prefix << " " << msg << endl;
 		maybe_bell();
 
-		cerr.flush();
-		_exit(exit_code);
+		cout.flush();
+		exit(exit_code);
 	}
 #endif
 
 	maybe_bell();
-	print_show_cursor();
-	cerr << '\n';
+	print_hide_cursor();
+	cout << '\n';
 	string sig_prefix = string("\x1B[33m") + "signal " + sig_macro + " (" + to_string(exit_code) + "):" + "\x1B[0m";
-	cerr << sig_prefix << " " << (desc ? desc : "") << endl;
+	cout << sig_prefix << " " << (desc ? desc : "") << endl;
 	maybe_bell();
 
-	_exit(exit_code);
+	exit(exit_code);
 }
 
 void signal_handler(int signo){
@@ -493,6 +398,7 @@ void drain_sig_pipe(){
 
 void install_signal_handlers(){
 	if(pipe(sig_pipe_fds) != 0){
+		// if pipe fails, still attempt to set handlers without self-pipe
 		sig_pipe_fds[0] = sig_pipe_fds[1] = -1;
 	} else {
 		int flags = fcntl(sig_pipe_fds[0], F_GETFL, 0);
@@ -505,7 +411,7 @@ void install_signal_handlers(){
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = signal_handler;
 	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
+	sa.sa_flags = 0; // do not SA_RESTART: allow syscalls to be interrupted
 	sigaction(SIGINT, &sa, nullptr);
 	sigaction(SIGTERM, &sa, nullptr);
 	sigaction(SIGQUIT, &sa, nullptr);
@@ -612,23 +518,26 @@ void type_line(const string &raw_in, int lineno, int total_lines){
 	}
 
 	int len = (int)line.size();
-	size_t i = 0;
-	while(i < (size_t)len){
+	int i = 0;
+	while(i < len){
 		if(sig_flag){
 			int signo = sig_flag;
 			sig_flag = 0;
 			handle_signal_event(signo);
 		}
 
-		if(escapes && (unsigned char)line[i] == 0x1B){
+		char ch = line[i];
+		int cols = get_cols();
+
+		if(escapes && ch == '\x1B'){
 			string esc;
-			esc.push_back(line[i]);
+			esc.push_back(ch);
 			++i;
-			if(i >= (size_t)len){ out += esc; cout << '\r' << "\x1B[K" << out << "█" << flush; break; }
+			if(i >= len){ out += esc; cout << '\r' << "\x1B[K" << out << "█" << flush; break; }
 			char next = line[i++];
 			esc.push_back(next);
 			if(next == '['){
-				while(i < (size_t)len){
+				while(i < len){
 					char c = line[i++];
 					esc.push_back(c);
 					if((unsigned char)c >= 0x40 && (unsigned char)c <= 0x7E) break;
@@ -636,66 +545,37 @@ void type_line(const string &raw_in, int lineno, int total_lines){
 				out += esc; cout << '\r' << "\x1B[K" << out << "█" << flush; continue;
 			}
 			if(next == ']'){
-				while(i < (size_t)len){
+				while(i < len){
 					char c = line[i++];
 					esc.push_back(c);
 					if(c == '\a') break;
-					if(c == '\x1B' && i < (size_t)len && line[i] == '\\'){ esc.push_back('\\'); ++i; break; }
+					if(c == '\x1B' && i < len && line[i] == '\\'){ esc.push_back('\\'); ++i; break; }
 				}
 				out += esc; cout << '\r' << "\x1B[K" << out << "█" << flush; continue;
 			}
 			out += esc; cout << '\r' << "\x1B[K" << out << "█" << flush; continue;
 		}
 
-		int char_bytes = 0;
-		int glyph_width = 0;
-		string glyph = utf8_next_glyph(line, i, char_bytes, glyph_width);
-		char ch0 = glyph[0];
-
-		if(char_bytes == 1 && ch0 == '\t'){
+		int delta = 1;
+		if(ch == '\t'){
 			int mod = j % TABSIZE;
-			int delta = TABSIZE - mod;
+			delta = TABSIZE - mod;
 			if(delta == 0) delta = TABSIZE;
-
 			cout << '\r' << "\x1B[K" << out << "█" << flush;
 			for(int X=0; X<6; ++X){
 				if(sig_flag){ int signo = sig_flag; sig_flag = 0; handle_signal_event(signo); }
 				this_thread::sleep_for(chrono::duration<double>(calc_delay()));
 			}
-			int prospective = j + delta;
-			int cols = get_cols();
-			if(prospective >= cols){
-				cout << '\r' << "\x1B[K" << out << '\n' << flush;
-				if(prefix_visible_len > 0){
-					out = prefix_cont_str;
-					cout << out << "█" << flush;
-					j = prefix_visible_len;
-				} else {
-					out.clear();
-					cout << "█" << flush;
-					j = 0;
-				}
-				for(int X=0; X<2; ++X){
-					if(sig_flag){ int signo = sig_flag; sig_flag = 0; handle_signal_event(signo); }
-					this_thread::sleep_for(chrono::duration<double>(calc_delay()));
-				}
-			} else {
-				j = prospective;
+		} else {
+			cout << '\r' << "\x1B[K" << out << "█" << flush;
+			for(int X=0; X<3; ++X){
+				if(sig_flag){ int signo = sig_flag; sig_flag = 0; handle_signal_event(signo); }
+				this_thread::sleep_for(chrono::duration<double>(calc_delay()));
 			}
-			i += 1;
-			continue;
+			delta = 1;
 		}
 
-		cout << '\r' << "\x1B[K" << out << "█" << flush;
-		for(int X=0; X<3; ++X){
-			if(sig_flag){ int signo = sig_flag; sig_flag = 0; handle_signal_event(signo); }
-			this_thread::sleep_for(chrono::duration<double>(calc_delay()));
-		}
-
-		int delta = glyph_width > 0 ? glyph_width : 1;
 		int prospective = j + delta;
-		int cols = get_cols();
-
 		if(prospective >= cols){
 			cout << '\r' << "\x1B[K" << out << '\n' << flush;
 			if(prefix_visible_len > 0){
@@ -715,8 +595,8 @@ void type_line(const string &raw_in, int lineno, int total_lines){
 			j = prospective;
 		}
 
-		if(mistakes && char_bytes == 1 && ch0 != '\n' && ch0 != ' ' && ch0 != '\t' && is_mistake()){
-			char wrong = pick_neighbor(ch0);
+		if(mistakes && ch != '\t' && ch != '\n' && ch != ' ' && is_mistake()){
+			char wrong = pick_neighbor(ch);
 			cout << '\r' << "\x1B[K" << out << wrong << "█" << flush;
 			for(int X=0; X<5; ++X){
 				if(sig_flag){ int signo = sig_flag; sig_flag = 0; handle_signal_event(signo); }
@@ -729,9 +609,9 @@ void type_line(const string &raw_in, int lineno, int total_lines){
 			}
 		}
 
-		out.append(glyph);
+		out.push_back(ch);
 		cout << '\r' << "\x1B[K" << out << "█" << flush;
-		i += (size_t)char_bytes;
+		++i;
 	}
 
 	sanitize_trailing_esc(out);
@@ -753,17 +633,6 @@ void type_line(const string &raw_in, int lineno, int total_lines){
 }
 
 int main(int argc, char **argv){
-	// Early platform check: native Windows builds are not supported.
-	// Allow Cygwin/WSL (they define different macros), but stop native Win32/MSVC/MinGW.
-	#if defined(_WIN32) && !defined(__CYGWIN__)
-		cerr << "\x1B[31merror (7):\x1B[0m This program is not supported on native Windows.\n";
-		cerr << "Reason: it relies on POSIX-specific APIs (ioctl(TIOCGWINSZ), poll, signals, pipes, etc.),\n";
-		cerr << "which makes correct operation impossible on native Windows environments.\n";
-		cerr << "Suggestions: run it under WSL, Cygwin, or MSYS2, or on a Linux/Termux system.\n";
-		cerr << "The program will now exit.\n" << flush;
-		_exit(7);
-	#endif
-
 	install_signal_handlers();
 	atexit([](){
 		print_show_cursor();
@@ -920,7 +789,7 @@ int main(int argc, char **argv){
 
 			print_show_cursor();
 
-			struct pollfd fds[2]{};
+			struct pollfd fds[2];
 			fds[0].fd = STDIN_FILENO;
 			fds[0].events = POLLIN;
 			fds[0].revents = 0;
@@ -958,6 +827,7 @@ int main(int argc, char **argv){
 				size_t pos;
 				while((pos = partial.find('\n')) != string::npos){
 					string line = partial.substr(0, pos);
+					// remove optional '\r'
 					if(!line.empty() && line.back() == '\r') line.pop_back();
 					partial.erase(0, pos + 1);
 

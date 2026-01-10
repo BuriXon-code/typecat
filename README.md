@@ -1,4 +1,4 @@
-# typecat — A smart, lifelike text typer for your terminal ✍️
+# typecat - A smart, lifelike text typer for your terminal ✍️
 
 ## About
 **typecat** is a fast, lightweight and highly configurable command-line tool written in **C++ (C++17)** that displays text as if it were being typed in real time. It reads from files, stdin (pipes) or direct text arguments and renders output with realistic timing, optional typos, ANSI escape handling and line numbering.
@@ -73,7 +73,8 @@ chmod +x typecat
 
 ## Usage
 
-> NOTE: typecat expects a TTY on stdout/stderr for full behavior. Using it with redirected output may fail unless reading from stdin (piped input) is intended.
+> [!NOTE]
+> typecat expects a TTY on stdout/stderr for full behavior. Using it with redirected output may fail unless reading from stdin (piped input) is intended.
 
 ### Options (summary)
 
@@ -147,7 +148,7 @@ This license ensures that the software remains free and open-source. You are fre
 - Claim the program as entirely your own work.
 - Impose additional restrictions beyond GPLv3 when redistributing.
 
-> ![NOTE]
+> [!NOTE]
 > In short, GPLv3 allows freedom to use and modify, but ensures that the same freedoms are preserved for all downstream users.
 
 ## Support
