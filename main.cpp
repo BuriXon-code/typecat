@@ -88,7 +88,6 @@ int get_cols(){
 	return (int)w.ws_col;
 }
 
-
 double calc_delay(){
 	int value = 100 - speed;
 	int max_r = value > 0 ? value - 1 : 0;
