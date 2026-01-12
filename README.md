@@ -67,7 +67,7 @@ cd typecat
 
 **Build with g++**
 ```
-g++ -std=c++17 -O2 typecat.cpp -o typecat
+g++ -std=c++17 -O2 main.cpp -o typecat
 chmod +x typecat
 ```
 
